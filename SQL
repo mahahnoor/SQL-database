@@ -1,0 +1,1735 @@
+Format: tableName_memberNumber, sequenceName_memberNumber
+
+
+-- Run to drop existing objects
+DROP TABLE restaurants_1 CASCADE CONSTRAINTS;
+DROP TABLE cuisine_types_1 CASCADE CONSTRAINTS;
+DROP SEQUENCE cuisine_types_seq_1;
+DROP SEQUENCE restaurants_seq_1;
+
+-- Run to create sequences
+CREATE SEQUENCE cuisine_types_seq_1 START WITH 1 INCREMENT BY 1 NOCACHE;
+CREATE SEQUENCE restaurants_seq_1 START WITH 1 INCREMENT BY 1 NOCACHE;
+
+-- Run to create tables
+CREATE TABLE cuisine_types_1 (
+    cuisine_type_id INT PRIMARY KEY,
+    name VARCHAR2(255) UNIQUE NOT NULL
+);
+
+CREATE TABLE restaurants_1 (
+    restaurant_id INT PRIMARY KEY,
+    name VARCHAR2(255) UNIQUE NOT NULL,
+    location VARCHAR2(255) NOT NULL,
+    cuisine_type_id INT NOT NULL,
+    FOREIGN KEY (cuisine_type_id) REFERENCES cuisine_types_1(cuisine_type_id)
+);
+
+-- Run procedure to add cuisine type
+CREATE OR REPLACE PROCEDURE add_cuisine_type(p_name IN VARCHAR2) AS
+BEGIN
+    INSERT INTO cuisine_types_1 (cuisine_type_id, name)
+    VALUES (cuisine_types_seq_1.NEXTVAL, p_name);
+    DBMS_OUTPUT.PUT_LINE('Cuisine type "' || p_name || '" added successfully.');
+EXCEPTION
+    WHEN DUP_VAL_ON_INDEX THEN
+        DBMS_OUTPUT.PUT_LINE('Error: Cuisine type "' || p_name || '" already exists.');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('An error occurred: ' || SQLERRM);
+END;
+/
+
+-- Run procedure to add restaurant
+CREATE OR REPLACE PROCEDURE add_restaurant(
+    p_name IN VARCHAR2,
+    p_location IN VARCHAR2,
+    p_cuisine_type_name IN VARCHAR2
+) AS
+    v_cuisine_type_id INT;
+BEGIN
+    SELECT cuisine_type_id INTO v_cuisine_type_id
+    FROM cuisine_types_1
+    WHERE name = p_cuisine_type_name;
+
+    INSERT INTO restaurants_1 (restaurant_id, name, location, cuisine_type_id)
+    VALUES (restaurants_seq_1.NEXTVAL, p_name, p_location, v_cuisine_type_id);
+
+    DBMS_OUTPUT.PUT_LINE('Restaurant "' || p_name || '" added successfully.');
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('Error: Cuisine type "' || p_cuisine_type_name || '" does not exist.');
+    WHEN DUP_VAL_ON_INDEX THEN
+        DBMS_OUTPUT.PUT_LINE('Error: Restaurant "' || p_name || '" already exists.');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('An error occurred: ' || SQLERRM);
+END;
+/
+
+-- Add initial data to simulate a duplicate case for 'Italian'
+BEGIN
+    add_cuisine_type('Italian'); -- Pre-insert Italian for duplicate testing
+END;
+/
+
+-- Test 1: Add Cuisine Type
+-- Run normal case
+BEGIN
+    add_cuisine_type('Japanese'); -- Expected: Success message
+END;
+/
+
+-- Run special case
+BEGIN
+    add_cuisine_type('Italian'); -- Expected: Error message (already exists)
+END;
+/
+
+-- Test 2: Add Restaurant
+-- Run normal case
+BEGIN
+    add_restaurant('Sushi Zen', '123 Tokyo Lane, Seattle, WA 98101', 'Japanese'); -- Expected: Success message
+END;
+/
+
+-- Run special case
+BEGIN
+    add_restaurant('Mystic Pizza', '456 Mystic Ave, Boston, MA 02115', 'Pizza'); -- Expected: Error message
+END;
+/
+
+-- Run to verify data
+SELECT * FROM cuisine_types_1;
+SELECT * FROM restaurants_1;
+
+-- Test display_restaurants_by_cuisine
+BEGIN
+    display_restaurants_by_cuisine('Japanese'); -- Expected: List of Japanese restaurants
+END;
+/
+
+-- Test report_income_by_state (mocked)
+BEGIN
+    report_income_by_state; -- Expected: Mock income report
+END;
+/
+
+---
+
+/*
+Commit Changes
+- Once all procedures and tests are verified, press Commit (checkmark icon in the toolbar) to save.
+*/
+
+/*
+Verify with Final SELECT Statements
+- Run these queries to ensure all updates are correct.
+*/
+SELECT * FROM cuisine_types;
+SELECT * FROM restaurants;
+
+
+CREATE TABLE Cuisine_Types (
+    cuisine_id NUMBER PRIMARY KEY,
+    cuisine_name VARCHAR2(50) NOT NULL
+);
+
+CREATE TABLE Restaurants (
+    restaurant_id NUMBER PRIMARY KEY,
+    name VARCHAR2(100) NOT NULL,
+    location VARCHAR2(255) NOT NULL,
+    cuisine_id NUMBER,
+    FOREIGN KEY (cuisine_id) REFERENCES Cuisine_Types(cuisine_id)
+);
+
+CREATE TABLE Orders (
+    order_id NUMBER PRIMARY KEY,
+    restaurant_id NUMBER,
+    waiter_id NUMBER,
+    amount_paid NUMBER(10, 2) NOT NULL,
+    tip NUMBER(10, 2) NOT NULL,
+    FOREIGN KEY (restaurant_id) REFERENCES Restaurants(restaurant_id),
+    FOREIGN KEY (waiter_id) REFERENCES Waiters(wid)
+);
+
+CREATE OR REPLACE FUNCTION FIND_RESTAURANT_ID (
+    p_restaurant_name IN VARCHAR2
+) RETURN NUMBER IS
+    v_rid NUMBER;
+BEGIN
+    SELECT restaurant_id INTO v_rid
+    FROM Restaurants
+    WHERE LOWER(name) = LOWER(p_restaurant_name);
+   
+    RETURN v_rid;
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Restaurant not found: ' || p_restaurant_name);
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20002, 'Error finding restaurant: ' || SQLERRM);
+END;
+/
+
+CREATE OR REPLACE FUNCTION FIND_WAITER_ID (
+    p_waiter_name IN VARCHAR2
+) RETURN NUMBER IS
+    v_wid NUMBER;
+BEGIN
+    SELECT wid INTO v_wid
+    FROM Waiters
+    WHERE LOWER(wname) = LOWER(p_waiter_name);
+   
+    RETURN v_wid;
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20003, 'Waiter not found: ' || p_waiter_name);
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20004, 'Error finding waiter: ' || SQLERRM);
+END;
+/
+
+CREATE OR REPLACE PROCEDURE HIRE_WAITER (
+    p_waiter_name IN VARCHAR2,
+    p_restaurant_name IN VARCHAR2
+) IS
+    v_rid NUMBER;
+    v_wid NUMBER;
+BEGIN
+    v_rid := FIND_RESTAURANT_ID(p_restaurant_name);
+    v_wid := waiter_id_seq.NEXTVAL;
+   
+    INSERT INTO Waiters (wid, wname, rid)
+    VALUES (v_wid, p_waiter_name, v_rid);
+   
+    DBMS_OUTPUT.PUT_LINE('Waiter ' || p_waiter_name || ' hired successfully at restaurant ID: ' || v_rid);
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20005, 'Error hiring waiter: ' || SQLERRM);
+END;
+/
+
+CREATE OR REPLACE PROCEDURE SHOW_WAITERS (
+    p_restaurant_name IN VARCHAR2
+) IS
+    v_rid NUMBER;
+    CURSOR waiter_cursor IS
+        SELECT w.wid, w.wname, r.name as rname, r.location
+        FROM Waiters w
+        JOIN Restaurants r ON w.rid = r.restaurant_id
+        WHERE w.rid = v_rid
+        ORDER BY w.wname;
+    v_waiter_found BOOLEAN := FALSE;
+BEGIN
+    v_rid := FIND_RESTAURANT_ID(p_restaurant_name);
+   
+    DBMS_OUTPUT.PUT_LINE('Waiters at ' || p_restaurant_name || ':');
+    DBMS_OUTPUT.PUT_LINE('----------------------------------------');
+   
+    FOR waiter_rec IN waiter_cursor LOOP
+        v_waiter_found := TRUE;
+        DBMS_OUTPUT.PUT_LINE('Waiter ID: ' || waiter_rec.wid);
+        DBMS_OUTPUT.PUT_LINE('Name: ' || waiter_rec.wname);
+        DBMS_OUTPUT.PUT_LINE('Restaurant: ' || waiter_rec.rname);
+        DBMS_OUTPUT.PUT_LINE('Location: ' || waiter_rec.location);
+        DBMS_OUTPUT.PUT_LINE('----------------------------------------');
+    END LOOP;
+   
+    IF NOT v_waiter_found THEN
+        DBMS_OUTPUT.PUT_LINE('No waiters found for this restaurant.');
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20006, 'Error showing waiters: ' || SQLERRM);
+END;
+/
+
+CREATE OR REPLACE PROCEDURE REPORT_TIPS IS
+    CURSOR tips_cursor IS
+        SELECT w.wid, w.wname, r.name as rname,
+               COUNT(o.oid) as order_count,
+               SUM(o.tip) as total_tips,
+               AVG(o.tip) as avg_tip
+        FROM Waiters w
+        JOIN Restaurants r ON w.rid = r.restaurant_id
+        LEFT JOIN Orders o ON w.wid = o.wid
+        GROUP BY w.wid, w.wname, r.name
+        ORDER BY total_tips DESC;
+    v_found BOOLEAN := FALSE;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('Tips Report');
+    DBMS_OUTPUT.PUT_LINE('----------------------------------------');
+   
+    FOR tip_rec IN tips_cursor LOOP
+        v_found := TRUE;
+        DBMS_OUTPUT.PUT_LINE('Waiter: ' || tip_rec.wname);
+        DBMS_OUTPUT.PUT_LINE('Restaurant: ' || tip_rec.rname);
+        DBMS_OUTPUT.PUT_LINE('Orders Served: ' || tip_rec.order_count);
+        DBMS_OUTPUT.PUT_LINE('Total Tips: $' || TO_CHAR(tip_rec.total_tips, '999,999.99'));
+        DBMS_OUTPUT.PUT_LINE('Average Tip: $' || TO_CHAR(tip_rec.avg_tip, '999,999.99'));
+        DBMS_OUTPUT.PUT_LINE('----------------------------------------');
+    END LOOP;
+   
+    IF NOT v_found THEN
+        DBMS_OUTPUT.PUT_LINE('No tip data available.');
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20007, 'Error generating tips report: ' || SQLERRM);
+END;
+/
+
+
+CREATE OR REPLACE PROCEDURE REPORT_TIPS_BY_STATE IS
+    CURSOR state_tips_cursor IS
+        WITH StateExtract AS (
+            SELECT
+                restaurant_id,
+                REGEXP_SUBSTR(location, '[A-Z]{2}$') as state
+            FROM Restaurants
+        )
+        SELECT se.state,
+               COUNT(DISTINCT w.wid) as waiter_count,
+               COUNT(o.oid) as order_count,
+               SUM(o.tip) as total_tips,
+               AVG(o.tip) as avg_tip
+        FROM StateExtract se
+        JOIN Waiters w ON w.rid = se.restaurant_id
+        LEFT JOIN Orders o ON w.wid = o.wid
+        GROUP BY se.state
+        ORDER BY total_tips DESC;
+    v_found BOOLEAN := FALSE;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('Tips Report by State');
+    DBMS_OUTPUT.PUT_LINE('----------------------------------------');
+   
+    FOR state_rec IN state_tips_cursor LOOP
+        v_found := TRUE;
+        DBMS_OUTPUT.PUT_LINE('State: ' || state_rec.state);
+        DBMS_OUTPUT.PUT_LINE('Number of Waiters: ' || state_rec.waiter_count);
+        DBMS_OUTPUT.PUT_LINE('Total Orders: ' || state_rec.order_count);
+        DBMS_OUTPUT.PUT_LINE('Total Tips: $' || TO_CHAR(state_rec.total_tips, '999,999.99'));
+        DBMS_OUTPUT.PUT_LINE('Average Tip: $' || TO_CHAR(state_rec.avg_tip, '999,999.99'));
+        DBMS_OUTPUT.PUT_LINE('----------------------------------------');
+    END LOOP;
+   
+    IF NOT v_found THEN
+        DBMS_OUTPUT.PUT_LINE('No tip data available by state.');
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20008, 'Error generating tips by state report: ' || SQLERRM);
+END;
+/
+
+-------------------------------------------------------------------------------
+
+INSERT INTO Cuisine_Types VALUES (1, 'Italian');
+INSERT INTO Cuisine_Types VALUES (2, 'American');
+INSERT INTO Cuisine_Types VALUES (3, 'French');
+INSERT INTO Cuisine_Types VALUES (4, 'Japanese');
+
+INSERT INTO Restaurants VALUES (1, 'Bella Italia', '123 Main St, Baltimore, MD', 1);
+INSERT INTO Restaurants VALUES (2, 'American Diner', '456 Beach Rd, Miami, FL', 2);
+INSERT INTO Restaurants VALUES (3, 'Le Petit Café', '789 Hill Ave, Denver, CO', 3);
+INSERT INTO Restaurants VALUES (4, 'Sushi Express', '321 Oak St, Seattle, WA', 4);
+
+
+SET SERVEROUTPUT ON;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('========== TASK 1: HIRE_WAITER ==========');
+    DBMS_OUTPUT.PUT_LINE('Normal Case - Hiring waiter at existing restaurant:');
+    HIRE_WAITER('John Smith', 'Bella Italia');
+    HIRE_WAITER('Mary Johnson', 'Bella Italia');
+    
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || 'Special Case - Attempting to hire at non-existent restaurant:');
+    BEGIN
+        HIRE_WAITER('James Wilson', 'Non Existent Restaurant');
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('Error: ' || SQLERRM);
+    END;
+
+    INSERT INTO Orders (oid, rid, wid, amount_paid, tip) VALUES (1, 1, 1, 100, 20);
+    INSERT INTO Orders (oid, rid, wid, amount_paid, tip) VALUES (2, 1, 1, 150, 30);
+    INSERT INTO Orders (oid, rid, wid, amount_paid, tip) VALUES (3, 1, 2, 200, 40);
+    
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || '========== TASK 2: SHOW_WAITERS ==========');
+    DBMS_OUTPUT.PUT_LINE('Normal Case - Show waiters for restaurant with employees:');
+    SHOW_WAITERS('Bella Italia');
+    
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || 'Special Case - Show waiters for restaurant with no employees:');
+    SHOW_WAITERS('Sushi Express');
+    
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || '========== Additional Reports ==========');
+    DBMS_OUTPUT.PUT_LINE('Tips Report for all waiters:');
+    REPORT_TIPS;
+    
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || 'Tips Report by State:');
+    REPORT_TIPS_BY_STATE;
+END;
+/
+
+
+/*
+Viann Cheng
+IS420 D3 Member03
+Due Nov 24, 2024
+*/
+
+/* To be run before D3_member03.sql */
+/*
+Write SQL statements to...
+- create database tables
+- insert some sample data (at least 3 rows per table)
+- include drop table and drop sequence statements before create table, create
+  sequence, and insert.
+ 
+NOTE: All IDs must be automatically created using sequences.
+*/
+
+--Delete all rows to clear up tables
+DELETE FROM cuisine_03; --member01
+DELETE FROM restaurants_03; --member01
+DELETE FROM menu_items_03;
+DELETE FROM inventory_03;
+
+--Drop all tables and sequences to create new ones
+DROP TABLE cuisine_03; --member01
+DROP SEQUENCE cuisine_seq_03; --member01
+DROP TABLE restaurants_03; --member01
+DROP SEQUENCE restaurants_seq_03; --member01
+DROP TABLE menu_items_03;
+DROP TABLE inventory_03;
+DROP SEQUENCE menu_items_seq_03;
+DROP SEQUENCE inventory_seq_03;
+
+-- Reset menu_items_03 table to before create_menu_item
+DELETE FROM menu_items_03
+WHERE menu_item_id > 5;
+
+
+-- Creating the sequences
+--From member01
+CREATE SEQUENCE cuisine_seq_03
+START WITH 1
+INCREMENT BY 1
+NOCACHE;
+
+CREATE SEQUENCE restaurants_seq_03
+START WITH 1
+INCREMENT BY 1
+NOCACHE;
+
+--From member03
+CREATE SEQUENCE menu_items_seq_03
+START WITH 1
+INCREMENT BY 1
+NOCACHE;
+
+CREATE SEQUENCE inventory_seq_03
+START WITH 1
+INCREMENT BY 1
+NOCACHE;
+
+
+--Create Cuisine items table (member01)
+CREATE TABLE cuisine_03 (
+	cuisine_type_id INT NOT NULL,
+	cuisine_name VARCHAR(255) NOT NULL,
+	PRIMARY KEY (cuisine_type_id)
+);
+   
+--Create Restaurants table (member01)
+CREATE TABLE restaurants_03(
+	restaurant_id int NOT NULL,
+	restaurant_name varchar(255) NOT NULL,
+	street_address varchar(255) NOT NULL,
+	city varchar(255) NOT NULL,
+	state varchar(255) NOT NULL,
+	zip varchar(255) NOT NULL,
+	cuisine_type_id int NOT NULL,
+	PRIMARY KEY(restaurant_id),
+	FOREIGN KEY(cuisine_type_id) REFERENCES cuisine_03(cuisine_type_id)
+);
+
+--Create Menu Items table
+CREATE TABLE menu_items_03 (
+	menu_item_id int NOT NULL,
+	item_name varchar(255) NOT NULL,
+	price float,
+	cuisine_type_id int,
+	PRIMARY KEY(menu_item_id),
+	FOREIGN KEY(cuisine_type_id) REFERENCES cuisine_03(cuisine_type_id)
+);
+    
+--Create Inventory table
+CREATE TABLE inventory_03 (
+	inventory_id int NOT NULL,
+	restaurant_id int NOT NULL,
+	menu_item_id int NOT NULL,
+	item_name varchar(255) NOT NULL,
+	quantity int,
+	FOREIGN KEY(restaurant_id) REFERENCES restaurants_03(restaurant_id),
+	FOREIGN KEY(menu_item_id) REFERENCES menu_items_03(menu_item_id)
+);
+
+-- Add sample data into cuisine_03 table (member01)
+INSERT INTO cuisine_03 (cuisine_type_id, cuisine_name) VALUES (cuisine_seq_03.NEXTVAL, 'American');
+INSERT INTO cuisine_03 (cuisine_type_id, cuisine_name) VALUES (cuisine_seq_03.NEXTVAL, 'Indian');
+INSERT INTO cuisine_03 (cuisine_type_id, cuisine_name) VALUES (cuisine_seq_03.NEXTVAL, 'Italian');
+INSERT INTO cuisine_03 (cuisine_type_id, cuisine_name) VALUES (cuisine_seq_03.NEXTVAL, 'BBQ');
+INSERT INTO cuisine_03 (cuisine_type_id, cuisine_name) VALUES (cuisine_seq_03.NEXTVAL, 'Ethiopian');
+
+-- Add sample data into restaurants_03 table (member01)
+INSERT INTO restaurants_03 (restaurant_id, restaurant_name, street_address, city, state, zip, cuisine_type_id)
+VALUES (restaurants_seq_03.NEXTVAL, 'Silver Diner', '123 American St', 'TownTX', 'TX', '62704', 1);
+
+INSERT INTO restaurants_03 (restaurant_id, restaurant_name, street_address, city, state, zip, cuisine_type_id)
+VALUES (restaurants_seq_03.NEXTVAL, 'Bombay Bites', '456 Indian Ave', 'TownCA', 'CA', '75647', 2);
+
+INSERT INTO restaurants_03 (restaurant_id, restaurant_name, street_address, city, state, zip, cuisine_type_id)
+VALUES (restaurants_seq_03.NEXTVAL, 'Al Antico Vinaio', '789 Italian Rd', 'TownNY', 'NY', '92501', 3);
+
+INSERT INTO restaurants_03 (restaurant_id, restaurant_name, street_address, city, state, zip, cuisine_type_id)
+VALUES (restaurants_seq_03.NEXTVAL, 'BBQ Steakhouse', '101 BBQ St', 'TownGA', 'GA', '27834', 4);
+
+INSERT INTO restaurants_03 (restaurant_id, restaurant_name, street_address, city, state, zip, cuisine_type_id)
+VALUES (restaurants_seq_03.NEXTVAL, 'CherCher', '202 Ethiopian Ln', 'TownMD', 'MD', '53703', 5);
+
+/*
+Cuisine order is as listed in cuisine_types table:
+
+1) American—burger, fries, pasta, salad, salmon
+2) Indian—dal soup, rice, tandoori chicken, samosa
+3) Italian—lasagna, meatballs, spaghetti, pizza
+4) BBQ—steak, pork loin, fillet mignon
+5) Ethiopian—meat chunks, legume stew, flatbread
+*/
+-- Add sample data into menu_items_03 table
+INSERT INTO menu_items_03 (menu_item_id, item_name, price, cuisine_type_id)
+VALUES (menu_items_seq_03.NEXTVAL, 'burger', 12.00, 1);
+
+INSERT INTO menu_items_03 (menu_item_id, item_name, price, cuisine_type_id)
+VALUES (menu_items_seq_03.NEXTVAL, 'fries', 5.00, 1);
+
+INSERT INTO menu_items_03 (menu_item_id, item_name, price, cuisine_type_id)
+VALUES (menu_items_seq_03.NEXTVAL, 'pasta', 15.00, 1);
+
+INSERT INTO menu_items_03 (menu_item_id, item_name, price, cuisine_type_id)
+VALUES (menu_items_seq_03.NEXTVAL, 'salad', 10.00, 1);
+
+INSERT INTO menu_items_03 (menu_item_id, item_name, price, cuisine_type_id)
+VALUES (menu_items_seq_03.NEXTVAL, 'salmon', 20.00, 1);
+
+-- Add sample data into inventory_03 table
+INSERT INTO inventory_03 (inventory_id, restaurant_id, menu_item_id, item_name, quantity)
+VALUES (inventory_seq_03.NEXTVAL, 1, 1, 'burger', 20);
+
+INSERT INTO inventory_03 (inventory_id, restaurant_id, menu_item_id, item_name, quantity)
+VALUES (inventory_seq_03.NEXTVAL, 1, 2, 'fries', 50);
+
+INSERT INTO inventory_03 (inventory_id, restaurant_id, menu_item_id, item_name, quantity)
+VALUES (inventory_seq_03.NEXTVAL, 1, 3, 'pasta', 10);
+
+/* Debugging */
+SELECT * FROM restaurants_03;
+SELECT * FROM menu_items_03;
+SELECT * FROM inventory_03;
+
+/* MEMBER 03 CODE */
+/*
+Viann Cheng
+IS420 D3 Member03
+Due Nov 24, 2024
+*/
+
+/***************
+RESET EVERYTHING
+****************/
+-- Helper functions
+DROP FUNCTION find_cuisine_type_id_03;
+DROP FUNCTION find_restaurant_id_03;
+DROP FUNCTION find_menu_item_id_03;
+DROP FUNCTION cuisine_name_from_restaurant;
+
+-- Member 03 code
+DROP PROCEDURE create_menu_item;
+DROP PROCEDURE add_item_to_inventory;
+DROP PROCEDURE update_inventory;
+DROP PROCEDURE report_items_by_cuisine;
+
+-- Testing
+DROP PROCEDURE test_find_cuisine_type_id;
+DROP PROCEDURE test_find_restaurant_id;
+DROP PROCEDURE test_find_menu_item_id;
+DROP PROCEDURE test_create_menu_item;
+DROP PROCEDURE test_add_item_to_inventory;
+DROP PROCEDURE test_update_inventory;
+DROP PROCEDURE test_report_items_by_cuisine;
+
+-- Reset menu_items_03 table to before create_menu_item
+DELETE FROM menu_items_03
+WHERE menu_item_id > 5;
+--SELECT * FROM menu_items_03;
+
+
+/***************
+HELPER FUNCTIONS
+****************/
+/*
+FIND_CUISINE_TYPE_ID (cuisine_03 name)
+Assume cuisine_03 name is unique (e.g. Italian). Function returns cuisine_03 ID.
+*/
+CREATE OR REPLACE FUNCTION find_cuisine_type_id_03 (
+	--Param the function accepts
+	cuisine_name_given IN VARCHAR
+) RETURN INTEGER IS
+	--Declare all local vars used in the function
+	v_cuisine_id INTEGER;
+BEGIN
+	--Find the cuisine_03 id for the given cuisine_03 name
+	SELECT cuisine_type_id
+	INTO v_cuisine_id
+	FROM cuisine_03
+	WHERE cuisine_name = cuisine_name_given;
+	RETURN v_cuisine_id;
+
+EXCEPTION
+	--Catch-all exceptions handler
+	WHEN OTHERS THEN
+    	RETURN NULL;
+END;
+/
+
+/*
+FIND_RESTAURANT_ID (restaurant name)
+Assume restaurant name is unique (e.g.HotDawg). Function returns the restaurant ID.
+*/
+CREATE OR REPLACE FUNCTION find_restaurant_id_03 (
+	--Param the function accepts
+	restaurant_name_given IN VARCHAR
+) RETURN INTEGER IS
+	--Declare all local vars used in the function
+	v_restaurant_id INTEGER;
+BEGIN
+	--Find the cuisine_03 id for the given cuisine_03 name
+	SELECT restaurant_id
+	INTO v_restaurant_id
+	FROM restaurants_03
+	WHERE restaurant_name = restaurant_name_given;
+	RETURN v_restaurant_id;
+
+EXCEPTION
+	--Catch-all exceptions handler
+	WHEN OTHERS THEN
+    	RETURN NULL;
+END;
+/
+
+/*
+FIND_MENU_ITEM_ID (item name)
+Assume item name is unique (e.g. spaghetti). Function returns the menu item ID.
+*/
+CREATE OR REPLACE FUNCTION find_menu_item_id_03 (
+	--Param the function accepts
+	item_name_given IN VARCHAR
+) RETURN INTEGER IS
+	--Declare all local vars used in the function
+	v_item_name_id INTEGER;
+BEGIN
+	--Find the cuisine_03 id for the given cuisine_03 name
+	SELECT menu_item_id
+	INTO v_item_name_id
+	FROM menu_items_03
+	WHERE item_name = item_name_given;
+	RETURN v_item_name_id;
+
+EXCEPTION
+	--Catch-all exceptions handler
+	WHEN OTHERS THEN
+    	RETURN NULL;
+END;
+/
+
+-- Function to find cuisine_03 a restaurant belongs to
+CREATE OR REPLACE FUNCTION cuisine_name_from_restaurant (
+	restaurant_name_given IN VARCHAR
+) RETURN VARCHAR IS
+	v_cuisine_type_id INTEGER;
+	v_cuisine_name VARCHAR(255);
+BEGIN
+	-- Find the cuisine_03 type ID for the given restaurant name
+	SELECT cuisine_type_id
+	INTO v_cuisine_type_id
+	FROM restaurants_03
+	WHERE restaurant_name = restaurant_name_given;
+    
+	-- Find the cuisine_03 name using the cuisine_03 type ID
+	SELECT cuisine_name
+	INTO v_cuisine_name
+	FROM cuisine_03
+	WHERE cuisine_type_id = v_cuisine_type_id;
+    
+	-- Return the found cuisine_03 name
+	RETURN v_cuisine_name;
+
+EXCEPTION
+	WHEN OTHERS THEN
+    	--Catch-all exceptions handler
+    	RETURN NULL;
+END;
+/
+
+/*************
+MEMBER 03 CODE
+**************/
+/*
+9. Create menu item: Given a cuisine_03 type id, create a menu item (name and
+price) for that cuisine_03 type. Use the function FIND_CUISINE_TYPE_ID (see
+helper functions below) first to get the ID.
+*/
+CREATE OR REPLACE PROCEDURE create_menu_item (
+	cuisine_name IN VARCHAR,
+	item_name IN VARCHAR, --name of new menu item
+	price IN FLOAT
+) IS
+	v_cuisine_id INTEGER;
+	v_menu_item_id INTEGER;
+BEGIN
+	-- Find cuisine_03 type ID using given cuisine_03 name
+	v_cuisine_id := find_cuisine_type_id_03(cuisine_name);
+
+	-- Check if cuisine_03 name/ID valid
+	IF cuisine_name IS NULL OR cuisine_name = '' THEN
+    	DBMS_OUTPUT.PUT_LINE('Cuisine name cannot be null or empty');
+    	RETURN;
+	ELSIF v_cuisine_id IS NULL THEN
+    	DBMS_OUTPUT.PUT_LINE('Nonexistent cuisine_03: ' || cuisine_name);
+    	RETURN;
+	END IF;
+    
+	-- Check if item name is valid
+	IF item_name IS NULL OR item_name = '' THEN
+    	DBMS_OUTPUT.PUT_LINE('Item name cannot be null or empty');
+    	RETURN;
+	ELSIF find_menu_item_id_03(item_name) IS NOT NULL THEN
+    	DBMS_OUTPUT.PUT_LINE('Item already exists: ' || item_name);
+    	RETURN;
+	END IF;
+    
+	-- Check if price is non-negative
+	IF price < 0 THEN
+    	DBMS_OUTPUT.PUT_LINE('Price must be non-negative');
+    	RETURN;
+	END IF;
+    
+	-- Get next value for menu_item_id
+	v_menu_item_id := menu_items_seq_03.NEXTVAL;
+
+	-- Insert new menu item
+	INSERT INTO menu_items_03 (menu_item_id, item_name, price, cuisine_type_id)
+	VALUES (v_menu_item_id, item_name, price, v_cuisine_id);
+
+	-- Print confirmation message
+	DBMS_OUTPUT.PUT_LINE('Menu item "' || item_name || '" created with ID: ' ||
+    	v_menu_item_id || ', cuisine_03: ' || cuisine_name);
+
+EXCEPTION
+	--Catch-all exceptions handler
+	WHEN OTHERS THEN
+    	DBMS_OUTPUT.PUT_LINE('Error creating menu item');
+    	RETURN;
+END;
+/
+
+/*
+10. Add menu item to Restaurant Inventory: Given all pertinent information,
+add a menu item with a given quantity to a given restaurant in the Restaurant
+Inventory table. You will need to call helper functions to find IDs (see
+helper functions below)
+*/
+CREATE OR REPLACE PROCEDURE add_item_to_inventory (
+	restaurant_name IN VARCHAR, --name of restaurant
+	item_name IN VARCHAR, --name of menu item
+	quantity IN INTEGER, --quantity of menu item
+	price IN FLOAT --price of menu item
+) IS
+	v_cuisine_name VARCHAR(255);
+	v_menu_item_id INTEGER;
+	v_restaurant_id INTEGER;
+	v_inventory_id INTEGER;
+BEGIN
+    	/* CODE USING restaurant_name */
+    	-- Check if restaurant name is valid
+    	IF restaurant_name IS NULL OR restaurant_name = '' THEN
+        	DBMS_OUTPUT.PUT_LINE('Restaurant name cannot be null or empty');
+        	RETURN;
+    	END IF;
+   	 
+    	-- Get cuisine_03 name from given restaurant name
+    	v_cuisine_name := cuisine_name_from_restaurant(restaurant_name);  
+   	 
+    	-- Find restaurant ID using given restaurant name
+    	v_restaurant_id := find_restaurant_id_03(restaurant_name);
+    	-- Check if restaurant ID is valid
+    	IF v_restaurant_id IS NULL THEN
+        	DBMS_OUTPUT.PUT_LINE('Nonexistent restaurant: ' || restaurant_name);
+        	RETURN;
+    	END IF;
+   	 
+    	-- Check if quantity is non-negative
+    	IF quantity < 0 THEN
+        	DBMS_OUTPUT.PUT_LINE('Quantity must be non-negative');
+        	RETURN;
+    	END IF;
+   	 
+     	-- Check if item name is valid
+    	IF item_name IS NULL OR item_name = '' THEN
+        	DBMS_OUTPUT.PUT_LINE('Item name cannot be null or empty');
+        	RETURN;
+    	END IF;
+   	 
+    	-- Check if menu item already exists
+    	IF find_menu_item_id_03(item_name) IS NOT NULL THEN
+        	DBMS_OUTPUT.PUT_LINE('Item already exists: ' || item_name);
+        	RETURN;
+     	ELSE
+        	-- Create new menu item (all other inv. params are valid)
+        	v_cuisine_name := cuisine_name_from_restaurant(restaurant_name);
+        	create_menu_item(v_cuisine_name, item_name, price);
+        	DBMS_OUTPUT.PUT_LINE('Created new menu item for inventory_03');
+        	v_menu_item_id := find_menu_item_id_03(item_name);
+    	END IF;
+   	 
+    	-- Get next value for inventory_id
+    	v_inventory_id := inventory_seq_03.NEXTVAL;
+   	 
+    	-- Insert new menu item into the inventory_03
+    	INSERT INTO inventory_03 (inventory_id, restaurant_id, menu_item_id, item_name, quantity)
+    	VALUES (v_inventory_id, v_restaurant_id, v_menu_item_id, item_name, quantity);
+   	 
+    	-- Print confirmation message
+    	DBMS_OUTPUT.PUT_LINE('Menu item "' || item_name || '", quantity ' || quantity ||
+        	' inserted into ' || restaurant_name || ''' inventory_03 with ID: ' || v_inventory_id);
+
+EXCEPTION
+	--Catch-all exceptions handler
+	WHEN OTHERS THEN
+    	DBMS_OUTPUT.PUT_LINE('Error inserting menu item into inventory_03');
+    	RETURN;
+END;
+/
+
+
+/*
+11. Update menu item inventory_03: Given a restaurant id, a menu item id, along with a
+given quantity, reduce the inventory_03 of that menu item by the amount specified by the
+quantity. This is to keep the inventory_03 updated every time there is an order of an
+item
+*/
+CREATE OR REPLACE PROCEDURE update_inventory (
+	restaurant_id IN INTEGER,
+	menu_item_id IN INTEGER,
+	quantity IN INTEGER --quantity to decrease by
+) IS
+	v_current_quantity INTEGER; --current quantity of menu item
+BEGIN
+	-- Check if quantity is non-negative
+	IF quantity < 0 THEN
+    	DBMS_OUTPUT.PUT_LINE('Quantity must be non-negative');
+    	RETURN;
+	ELSIF quantity IS NULL THEN
+    	DBMS_OUTPUT.PUT_LINE('Quantity cannot be null');
+    	RETURN;
+	END IF;
+
+	-- Get current inventory_03 quantity for given menu item and restaurant
+	SELECT quantity
+	INTO v_current_quantity
+	FROM inventory_03
+	WHERE restaurant_id = update_inventory.restaurant_id
+  	AND menu_item_id = update_inventory.menu_item_id;
+
+	-- Check if current quantity is greater than amount to subtract
+	IF v_current_quantity < quantity THEN
+    	DBMS_OUTPUT.PUT_LINE('Not enough inventory_03 to subtract from');
+    	RETURN;
+	END IF;
+
+	-- Update inventory_03 by reducing the quantity
+	UPDATE inventory_03
+	SET quantity = quantity - update_inventory.quantity
+	WHERE restaurant_id = update_inventory.restaurant_id
+  	AND menu_item_id = update_inventory.menu_item_id;
+
+	-- Print confirmation message
+	DBMS_OUTPUT.PUT_LINE('Inventory updated for restaurant ID: ' || restaurant_id ||
+                     	', menu item ID: ' || menu_item_id || ', quantity subtracted by: ' || quantity);
+
+EXCEPTION
+	WHEN NO_DATA_FOUND THEN
+    	DBMS_OUTPUT.PUT_LINE('No matching inventory_03 record found');
+	WHEN OTHERS THEN
+    	DBMS_OUTPUT.PUT_LINE('Error updating inventory_03');
+END;
+/
+
+/*
+12. Report Menu items: Generate a report to show totals of each menu item by type of
+cuisine_03
+*/
+CREATE OR REPLACE PROCEDURE report_menu_items_by_cuisine IS
+BEGIN
+	-- Use FOR loop to iterate over query results
+	FOR r IN (
+    	-- Get cuisine_03 name, item name, total quantity of each menu item
+    	SELECT c.cuisine_name,
+           	m.item_name,
+           	SUM(i.quantity) AS total_quantity
+    	-- Join cuisine_03, restaurants_03, inventory_03, menu_items_03 tables
+    	FROM cuisine_03 c
+    	JOIN restaurants_03 r ON c.cuisine_type_id = r.cuisine_type_id
+    	JOIN inventory_03 i ON r.restaurant_id = i.restaurant_id
+    	JOIN menu_items_03 m ON i.menu_item_id = m.menu_item_id
+    	-- Group results by cuisine_03 name and item name
+    	GROUP BY c.cuisine_name, m.item_name
+    	-- Order results by cuisine_03 name and item name
+    	ORDER BY c.cuisine_name, m.item_name
+	) LOOP
+    	-- Output cuisine_03 name, item name, total quantity
+    	DBMS_OUTPUT.PUT_LINE('Cuisine: ' || r.cuisine_name || ', Item: ' || r.item_name || ', Total Quantity: ' || r.total_quantity);
+	END LOOP;
+EXCEPTION
+	WHEN OTHERS THEN
+    	DBMS_OUTPUT.PUT_LINE('Error generating report');
+END;
+/
+
+
+/******
+TESTING
+*******/
+-- Testing function for find_cuisine_type_id_03
+CREATE OR REPLACE PROCEDURE test_find_cuisine_type_id IS
+	--Declare all local vars used in the function
+	t_cuisine_name varchar(255); --cuisine_03 name
+	t_cuisine_id INTEGER; --returned cuisine_03 id
+BEGIN
+	/*
+	1. Existing cuisine_03 name
+	Expected output: Cuisine ID for Italian is: 3
+	*/
+	t_cuisine_name := 'Italian';
+	-- Call function and store result in t_cuisine_id
+	t_cuisine_id := find_cuisine_type_id_03(t_cuisine_name);
+	-- Print result
+	if t_cuisine_id IS NULL THEN
+    	DBMS_OUTPUT.PUT_LINE('Cuisine ID not found');
+	ELSE
+    	DBMS_OUTPUT.PUT_LINE('Cuisine ID for ' || t_cuisine_name || ' is: ' || t_cuisine_id);  	 
+	END IF;
+
+	/*
+	2. Nonexistent cuisine_03 name
+	Expected output: Cuisine ID not found
+	*/
+	t_cuisine_name := 'Chinese';
+	-- Call function and store result in t_cuisine_id
+	t_cuisine_id := find_cuisine_type_id_03(t_cuisine_name);
+	-- Print result
+	if t_cuisine_id IS NULL THEN
+    	DBMS_OUTPUT.PUT_LINE('Cuisine ID not found');
+	ELSE
+    	DBMS_OUTPUT.PUT_LINE('Cuisine ID for ' || t_cuisine_name || ' is: ' || t_cuisine_id);  	 
+	END IF;
+
+	/*
+	3. Empty string cuisine_03 name
+	Expected output: Cuisine ID not found
+	*/
+	t_cuisine_name := '';
+	-- Call function and store result in t_cuisine_id
+	t_cuisine_id := find_cuisine_type_id_03(t_cuisine_name);
+	-- Print result
+	if t_cuisine_id IS NULL THEN
+    	DBMS_OUTPUT.PUT_LINE('Cuisine ID not found');
+	ELSE
+    	DBMS_OUTPUT.PUT_LINE('Cuisine ID for ' || t_cuisine_name || ' is: ' || t_cuisine_id);  	 
+	END IF;
+    
+	/*
+	4. Null cuisine_03 name
+	Expected output: Cuisine ID not found
+	*/
+	t_cuisine_name := NULL;
+	-- Call function and store result in t_cuisine_id
+	t_cuisine_id := find_cuisine_type_id_03(t_cuisine_name);
+	-- Print result
+	if t_cuisine_id IS NULL THEN
+    	DBMS_OUTPUT.PUT_LINE('Cuisine ID not found');
+	ELSE
+    	DBMS_OUTPUT.PUT_LINE('Cuisine ID for ' || t_cuisine_name || ' is: ' || t_cuisine_id);  	 
+	END IF;
+END;
+/
+
+-- Testing function for find_restaurant_id_03
+CREATE OR REPLACE PROCEDURE test_find_restaurant_id IS
+	--Declare all local vars used in the function
+	t_restaurant_name varchar(255); --restaurant name
+	t_restaurant_id INTEGER; --returned restaurant id
+BEGIN
+	/*
+	1. Existing restaurant name
+	Expected output: Restaurant ID for Bombay Bites is: 2
+	*/
+	t_restaurant_name := 'Bombay Bites';
+	-- Call function and store result in t_restaurant_id
+	t_restaurant_id := find_restaurant_id_03(t_restaurant_name);
+	-- Print result
+	if t_restaurant_id IS NULL THEN
+    	DBMS_OUTPUT.PUT_LINE('Restaurant ID not found');
+	ELSE
+    	DBMS_OUTPUT.PUT_LINE('Restaurant ID for ' || t_restaurant_name || ' is: ' || t_restaurant_id);  	 
+	END IF;
+
+	/*
+	2. Nonexistent restaurant name
+	Expected output: Restaurant ID not found
+	*/
+	t_restaurant_name := 'McDonalds';
+	-- Call function and store result in t_restaurant_id
+	t_restaurant_id := find_restaurant_id_03(t_restaurant_name);
+	-- Print result
+	if t_restaurant_id IS NULL THEN
+    	DBMS_OUTPUT.PUT_LINE('Restaurant ID not found');
+	ELSE
+    	DBMS_OUTPUT.PUT_LINE('Restaurant ID for ' || t_restaurant_name || ' is: ' || t_restaurant_id);  	 
+	END IF;
+
+	/*
+	3. Empty string restaurant name
+	Expected output: Restaurant ID not found
+	*/
+	t_restaurant_name := '';
+	-- Call function and store result in t_restaurant_id
+	t_restaurant_id := find_restaurant_id_03(t_restaurant_name);
+	-- Print result
+	if t_restaurant_id IS NULL THEN
+    	DBMS_OUTPUT.PUT_LINE('Restaurant ID not found');
+	ELSE
+    	DBMS_OUTPUT.PUT_LINE('Restaurant ID for ' || t_restaurant_name || ' is: ' || t_restaurant_id);  	 
+	END IF;
+    
+	/*
+	4. Null restaurant name
+	Expected output: Restaurant ID not found
+	*/
+	t_restaurant_name := NULL;
+	-- Call function and store result in t_restaurant_id
+	t_restaurant_id := find_restaurant_id_03(t_restaurant_name);
+	-- Print result
+	if t_restaurant_id IS NULL THEN
+    	DBMS_OUTPUT.PUT_LINE('Restaurant ID not found');
+	ELSE
+    	DBMS_OUTPUT.PUT_LINE('Restaurant ID for ' || t_restaurant_name || ' is: ' || t_restaurant_id);  	 
+	END IF;
+END;
+/
+
+-- Testing function for find_menu_item_id_03
+CREATE OR REPLACE PROCEDURE test_find_menu_item_id IS
+	--Declare all local vars used in the function
+	t_item_name varchar(255); --item name
+	t_item_name_id INTEGER; --returned item name id
+BEGIN
+	/*
+	1. Existing menu item name
+	Expected output: Menu item ID for salad is: 4
+	*/
+	t_item_name := 'salad';
+	-- Call function and store result in t_item_name_id
+	t_item_name_id := find_menu_item_id_03(t_item_name);
+	-- Print result
+	if t_item_name_id IS NULL THEN
+    	DBMS_OUTPUT.PUT_LINE('Menu item ID not found');
+	ELSE
+    	DBMS_OUTPUT.PUT_LINE('Menu item ID for ' || t_item_name || ' is: ' || t_item_name_id);  	 
+	END IF;
+
+	/*
+	2. Nonexistent menu item name
+	Expected output: Menu item ID not found
+	*/
+	t_item_name := 'Chinese';
+	-- Call function and store result in t_item_name_id
+	t_item_name_id := find_menu_item_id_03(t_item_name);
+	-- Print result
+	if t_item_name_id IS NULL THEN
+    	DBMS_OUTPUT.PUT_LINE('Menu item ID not found');
+	ELSE
+    	DBMS_OUTPUT.PUT_LINE('Menu item ID for ' || t_item_name || ' is: ' || t_item_name_id);  	 
+	END IF;
+
+	/*
+	3. Empty string menu item name
+	Expected output: Menu item ID not found
+	*/
+	t_item_name := '';
+	-- Call function and store result in t_item_name_id
+	t_item_name_id := find_menu_item_id_03(t_item_name);
+	-- Print result
+	if t_item_name_id IS NULL THEN
+    	DBMS_OUTPUT.PUT_LINE('Menu item ID not found');
+	ELSE
+    	DBMS_OUTPUT.PUT_LINE('Menu item ID for ' || t_item_name || ' is: ' || t_item_name_id);  	 
+	END IF;
+    
+	/*
+	4. Null menu item name
+	Expected output: Menu item ID not found
+	*/
+	t_item_name := NULL;
+	-- Call function and store result in t_item_name_id
+	t_item_name_id := find_menu_item_id_03(t_item_name);
+	-- Print result
+	if t_item_name_id IS NULL THEN
+    	DBMS_OUTPUT.PUT_LINE('Menu item ID not found');
+	ELSE
+    	DBMS_OUTPUT.PUT_LINE('Menu item ID for ' || t_item_name || ' is: ' || t_item_name_id);  	 
+	END IF;
+END;
+/
+
+-- Testing for create_menu_item
+CREATE OR REPLACE PROCEDURE test_create_menu_item IS
+BEGIN
+	/*
+	1. Existing cuisine_03 name
+	Expected output: Menu item "pizza" created with ID: 6, cuisine_03: Italian
+	*/
+	create_menu_item('Italian', 'pizza', 18.00);
+
+	/*
+	2. Existing cuisine_03 name
+	Expected output: Menu item "ribs" created with ID: 7, cuisine_03: BBQ
+	*/
+	create_menu_item('BBQ', 'ribs', 25.00);
+
+	/*
+	3. Nonexistent cuisine_03 name
+	Expected output: Nonexistent cuisine_03: Chinese
+	*/
+	create_menu_item('Chinese', 'dumplings', 12.00);
+    
+	/*
+	4. Empty cuisine_03 name
+	Expected output: Cuisine name cannot be null or empty
+	*/
+	create_menu_item('', 'rice', -12.00);
+    
+	/*
+	5. Null cuisine_03 name
+	Expected output: Cuisine name cannot be null or empty
+	*/
+	create_menu_item(NULL, 'rice', -12.00);
+    
+	/*
+	6. Negative price
+	Expected output: Price must be non-negative
+	*/
+	create_menu_item('Indian', 'rice', -12.00);
+    
+	/*
+	7. Empty item name
+	Expected output: Item name cannot be null or empty
+	*/
+	create_menu_item('Indian', '', 12.00);
+    
+	/*
+	8. Null item name
+	Expected output: Item name cannot be null or empty
+	*/
+	create_menu_item('Indian', '', 12.00);
+    
+	/*
+	9. Pre-existing item name
+	Expected output: Item already exists: burger
+	*/
+	create_menu_item('American', 'burger', 15.00);
+END;
+/
+
+-- Testing for add_item_to_inventory
+CREATE OR REPLACE PROCEDURE test_add_item_to_inventory IS
+BEGIN
+	/*
+	1. Invalid restaurant name
+	Expected output: Restaurant name cannot be null or empty (x2)
+	*/
+	add_item_to_inventory('', 'pork loin', 33, 20.00);
+	add_item_to_inventory(NULL, 'pork loin', 33, 20.00);
+
+	/*
+	2. Nonexistent restaurant name
+	Expected output: Nonexistent restaurant: PF Chang
+	*/
+	add_item_to_inventory('PF Chang', 'dumplings', 19, 12.00);
+    
+	/*
+	3. Invalid item name
+	Expected output: Item name cannot be null or empty (x2)
+	*/
+	add_item_to_inventory('Al Antico Vinaio', '', 19, 12.00);
+	add_item_to_inventory('Al Antico Vinaio', NULL, 19, 12.00);
+    
+	/*
+	4. Duplicate menu items (in menu_items_03 table)
+	Expected output:
+    	Item already exists: burger
+    	Item already exists: pasta
+	*/
+	add_item_to_inventory('Silver Diner', 'burger', 33, 20.00);
+	add_item_to_inventory('Al Antico Vinaio', 'pasta', 19, 12.00);
+    
+	/*
+	5. Create new menu item with valid params
+	Expected output:
+    	Menu item "pork loin" created with ID: 8, cuisine_03: BBQ
+    	Created new menu item for inventory_03
+    	Menu item "pork loin", quantity 33 inserted into BBQ Steakhouse' inventory_03 with ID: 4
+	*/
+	add_item_to_inventory('BBQ Steakhouse', 'pork loin', 33, 20.00);
+    
+	/*
+	6. Nonnegative quantity
+	Expected output: Quantity must be non-negative
+	*/
+	add_item_to_inventory('CherCher', 'flatbread', -20, 15.00);
+    
+	/*
+	7. All params valid
+	Expected output:
+    	Menu item "flatbread" created with ID: 9, cuisine_03: Ethiopian
+    	Created new menu item for inventory_03
+    	Menu item "flatbread", quantity 23 inserted into CherCher' inventory_03 with ID: 5
+	*/
+	add_item_to_inventory('CherCher', 'flatbread', 23, 15.00);
+END;
+/
+
+-- Testing for update_inventory
+CREATE OR REPLACE PROCEDURE test_update_inventory IS
+BEGIN
+	/*
+	1. Quantity to subtract is greater than current quantity
+	Expected output: Not enough inventory_03 to subtract from
+	*/
+	update_inventory(1, 2, 60);
+    
+	/*
+	2. Valid quantity
+	Expected output: Inventory updated successfully for restaurant ID: 1, menu item ID: 2, quantity subtracted by: 25
+	*/
+	update_inventory(1, 2, 25);
+
+	/*
+	3. NULL params
+	Expected output:
+    	No matching inventory_03 record found
+    	No matching inventory_03 record found
+    	Quantity cannot be null
+	*/
+	update_inventory(NULL, 2, 25);
+	update_inventory(1, NULL, 25);
+	update_inventory(1, 2, NULL);
+END;
+/
+
+-- Testing for report_menu_items_by_cuisine
+CREATE OR REPLACE PROCEDURE test_report_items_by_cuisine IS
+BEGIN
+	/*
+	1. Run report
+	Expected output: (Match output with inventory_03 table)
+	*/
+	report_menu_items_by_cuisine;
+END;
+/
+SELECT * FROM inventory_03; --for test_report_items_by_cuisine
+
+-- RUN ALL THE TESTS --
+-- Enable DBMS output
+SET SERVEROUTPUT ON;
+
+-- Testing using anon. PL/SQL program
+BEGIN
+--	DBMS_OUTPUT.PUT_LINE('*****' || CHR(10) || 'test_find_cuisine_type_id' ||
+--    	CHR(10) || '*****');
+--	test_find_cuisine_type_id;
+
+--	DBMS_OUTPUT.PUT_LINE(CHR(10)); --line break
+--	DBMS_OUTPUT.PUT_LINE('*****' || CHR(10) || 'test_find_restaurant_id' ||
+--    	CHR(10) || '*****');
+--	test_find_restaurant_id;
+
+--	DBMS_OUTPUT.PUT_LINE(CHR(10)); --line break
+--	DBMS_OUTPUT.PUT_LINE('*****' || CHR(10) || 'test_find_menu_item_id' ||
+--    	CHR(10) || '*****');
+--	test_find_menu_item_id;
+
+--	DBMS_OUTPUT.PUT_LINE(CHR(10)); --line break
+	DBMS_OUTPUT.PUT_LINE('*****' || CHR(10) || 'test_create_menu_item' ||
+    	CHR(10) || '*****');
+	test_create_menu_item;
+
+	DBMS_OUTPUT.PUT_LINE(CHR(10)); --line break
+	DBMS_OUTPUT.PUT_LINE('*****' || CHR(10) || 'test_add_item_to_inventory' ||
+    	CHR(10) || '*****');
+	test_add_item_to_inventory;
+    
+--	DBMS_OUTPUT.PUT_LINE(CHR(10)); --line break
+--	DBMS_OUTPUT.PUT_LINE('*****' || CHR(10) || 'test_update_inventory' ||
+--    	CHR(10) || '*****');
+--	test_update_inventory;
+
+--	DBMS_OUTPUT.PUT_LINE(CHR(10)); --line break
+--	DBMS_OUTPUT.PUT_LINE('*****' || CHR(10) || 'test_report_items_by_cuisine' ||
+--    	CHR(10) || '*****');
+--	test_report_items_by_cuisine;
+END;
+/
+
+/* Debugging */
+--SELECT * FROM restaurants_03;
+--SELECT * FROM menu_items_03;
+--SELECT * FROM inventory_03;
+
+/* Use DELETE STATEMENTS to remove any pre-existing data */
+DELETE FROM customers_4; 
+DELETE FROM orders_4; 
+DELETE FROM restaurants_4; 
+
+/* Use DELETE STATEMENTS to remove any pre-existing data */ 
+DROP TABLE customers_4 CASCADE CONSTRAINTS; 
+DROP SEQUENCE customers_seq_4; 
+DROP TABLE orders_4 CASCADE CONSTRAINTS;
+DROP SEQUENCE orders_seq_4;
+DROP TABLE restaurants_4 CASCADE CONSTRAINTS;
+DROP SEQUENCE restaurants_seq_4;
+
+DROP PROCEDURE add_customer; 
+DROP PROCEDURE find_customer_id; 
+DROP PROCEDURE place_order;
+DROP PROCEDURE list_orders;
+DROP PROCEDURE generate_report; 
+
+/* Start by running the tables (customers, orders, restaurants)
+and the corresponding sequences */ 
+
+-- Customer sequence
+CREATE SEQUENCE customers_seq_4
+START WITH 1
+INCREMENT BY 1
+NOCACHE;
+
+-- Customer_3
+create table customers_4 (
+    id        int             not null,
+    name      varchar(50)     not null,
+    email     varchar(50)     not null,
+    address   varchar(50)     not null,
+    city      varchar(50)     not null,
+    state     char(2)         not null,
+    zip       varchar2(10)    not null,
+    card_num  number(16)      not null,
+    primary key (id)
+);
+
+-- Restaurants sequence
+CREATE SEQUENCE restaurants_seq_4
+START WITH 1
+INCREMENT BY 1
+NOCACHE;
+
+-- Restaurants_3
+create table restaurants_4 (
+    id         int             not null,
+    name       varchar(50)     not null, 
+    address     varchar(50)     not null,
+    city        varchar(30)     not null,
+    state_code  char(2)         not null,
+    zip         varchar2(10)    not null,
+    primary key (id)
+);
+
+-- Restaurants data
+INSERT INTO restaurants_4 (id, name, address, city, state_code, zip) VALUES (restaurants_seq_3.NEXTVAL, 'Grill House', 'Park Avenue', 'Nashville', 'TN', '73301');
+INSERT INTO restaurants_4 (id, name, address, city, state_code, zip) VALUES (restaurants_seq_4.NEXTVAL, 'Hadi Restaurant', 'Coney Island', 'Brooklyn', 'NY', '11229');
+INSERT INTO restaurants_4 (id, name, address, city, state_code, zip) VALUES (restaurants_seq_4.NEXTVAL, 'Michaels', '3rd Avenue', 'Manhattan', 'NY', '11073');
+
+
+-- Orders sequence
+CREATE SEQUENCE orders_seq_4
+START WITH 1
+INCREMENT BY 1
+NOCACHE;
+
+-- Orders_3
+create table orders_4 (
+    id                  int      not null,
+    restaurant_id       int      not null, -- added
+    customer_id         int      not null,
+    order_date          date     not null,
+    paid_amount         float     not null,
+    tip                 float,
+    primary key (id),
+    foreign key (customer_id) references customers_4(id),
+    foreign key (restaurant_id) references restaurants_3(id) -- added
+);
+
+
+/* Now we move on to procedures, which aids to add values to the database through
+the procedures instead of using the INSERT statements, like the "add_customers()"
+procedure below. */
+
+--------------------------------------------------------------------------------
+--------------------------- Add customers --------------------------------------
+
+-- Adding customers, which adds customers to the database
+create or replace procedure add_customer (
+    c_name in varchar2, 
+    c_email in varchar2, 
+    c_address in varchar2, 
+    c_city in varchar2, 
+    c_state in char, 
+    c_zip in varchar2, 
+    c_card_num in number
+    -- All relevant customer information
+)
+IS
+customer_seq_id int;
+BEGIN
+    SELECT customers_seq_3.NEXTVAL INTO customer_seq_id FROM dual; -- conducts sequence as the customer ID
+    INSERT INTO customers_4 (
+        id,
+        name,
+        email,
+        address,
+        city,
+        state,
+        zip,
+        card_num
+    ) VALUES (
+        customer_seq_id, 
+        c_name,
+        c_email,
+        c_address, 
+        c_city,
+        c_state,
+        c_zip, 
+        c_card_num
+    );
+    dbms_output.put_line('Customer ' || c_name || ' has been assigned customer ID ' || customer_seq_id);
+    
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            dbms_output.put_line('Customer does not exist');
+            -- Checks if the customer ID is present or not, and if not, 
+            -- DBMS output notifies through this exception message
+END;
+
+/* The helper function FIND_CUSTOMER_ID to find customer IDs by inputting customer name */
+
+create or replace procedure find_customer_id (
+    c_name in varchar2
+) IS
+    c_id int; 
+BEGIN
+    SELECT id
+    INTO c_id
+    FROM customers_3
+    WHERE name = c_name; 
+    DBMS_OUTPUT.PUT_LINE(c_name || ' ID: ' || c_id);
+
+    EXCEPTION  
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE(c_name || ' does not exist as a customer.');
+        c_id := NULL; 
+
+END; 
+
+--------------------------------------------------------------------------------
+---------------------------- Place orders --------------------------------------
+
+/* The place_order() procedure that places orders with respective customer who
+ordered, and the restaurant they made the order at, with prices */
+
+create or replace procedure place_order (
+    o_restaurant_id in int,
+    o_customer_id in int, 
+    o_date in date, 
+    o_paid_amount in float, 
+    o_tip in float
+) 
+IS
+orders_seq_id int;
+BEGIN
+    SELECT orders_seq_4.NEXTVAL INTO orders_seq_id FROM dual;
+    INSERT INTO orders_4 (
+        id,
+        customer_id,
+        restaurant_id,
+        order_date,
+        paid_amount,
+        tip
+    ) VALUES (
+        orders_seq_id, 
+        o_customer_id, 
+        o_restaurant_id,
+        o_date, 
+        o_paid_amount, 
+        o_tip
+    );
+    dbms_output.put_line('Order: ' || orders_seq_id || ' belongs to customer ID ' || o_customer_id || ' at restaurant ID ' || o_restaurant_id);
+    
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            dbms_output.put_line('Order does not exist');
+        WHEN OTHERS THEN
+            dbms_output.put_line('Customer or restaurant does not exist');
+END;
+
+          
+------------------------ Testing starts here -----------------------------------
+
+-- Adding customer values (please add all at once)
+BEGIN
+    add_customer('Susan Grill', 'sgrill@gmail.com', '123 Maple St', 'Austin', 'TX', '73301', 3446533536546433);
+    add_customer('Mercedes April', 'mapril@gmail.com', '153 Apple St', 'Seattle', 'WA', '56301', 3547342685318633);
+    add_customer('Stanley Grambell', 'sgrambell@gmail.com', '573 Brook St', 'Sacramento', 'CA', '66601', 385493864827485); 
+END; 
+
+
+-- Finding customers (please add one at a time so we can see each values' different result)
+BEGIN
+    -- find_customer_id('Stanley Grambell'); --  Normal case
+    -- find_customer_id('Julia Roberts'); -- Special case, because this customer does not exist
+END; 
+
+-- Placing order values (add all at once) 
+BEGIN
+    place_order(1, 1, TO_DATE('07-29-2024','MM-DD-YYYY'), 200, 14); -- Normal 
+    place_order(1, 2, TO_DATE('07-29-2024','MM-DD-YYYY'), 182, 10);
+    place_order(1, 3, TO_DATE('07-29-2024','MM-DD-YYYY'), 76, 15);
+    place_order(4, 1, TO_DATE('04-01-2024','MM-DD-YYYY'), 200, 30); -- Special case because since the restaurant doesn't exist, then the order doesn't
+END; 
+
+
+
+-- Create the Customers Table
+CREATE TABLE Customers_5 (
+    customer_id INT PRIMARY KEY,
+    customer_name VARCHAR(255)
+);
+
+-- Create the Restaurants Table
+CREATE TABLE Restaurants_5 (
+    restaurant_id INT PRIMARY KEY,
+    restaurant_name VARCHAR(255),
+    cuisine_type VARCHAR(100)
+);
+
+-- Create the Reviews Table
+CREATE TABLE Reviews_5 (
+    review_id INT PRIMARY KEY,
+    restaurant_id INT,
+    reviewer_email VARCHAR2(255),
+    stars INT CHECK(stars BETWEEN 1 AND 5),
+    review_text CLOB,
+    FOREIGN KEY (restaurant_id) REFERENCES Restaurants(restaurant_id)
+);
+
+-- Create the Recommendations Table
+CREATE TABLE Recommendations_5 (
+    recommendation_id INT PRIMARY KEY,
+    customer_id INT,
+    restaurant_id INT,
+    recommendation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (restaurant_id) REFERENCES Restaurants(restaurant_id)
+);
+
+-- Create the Orders Table
+CREATE TABLE Orders_5 (
+    order_id INT PRIMARY KEY,
+    customer_id INT,
+    restaurant_id INT,
+    order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- Create sequences for auto-increment functionality
+CREATE SEQUENCE customers_seq_5 START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE restaurants_seq_5 START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE reviews_seq_5 START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE recommendations_seq_5 START WITH 1 INCREMENT BY 1;
+CREATE SEQUENCE orders_seq_5 START WITH 1 INCREMENT BY 1;
+
+-- Insert sample data into the Customers table
+INSERT INTO Customers_5 (customer_id, customer_name) 
+VALUES (customers_seq.NEXTVAL, 'John Doe');
+INSERT INTO Customers_5 (customer_id, customer_name) 
+VALUES (customers_seq.NEXTVAL, 'Jane Smith');
+INSERT INTO Customers_5 (customer_id, customer_name) 
+VALUES (customers_seq.NEXTVAL, 'Mike Jones');
+INSERT INTO Customers_5 (customer_id, customer_name) 
+VALUES (customers_seq.NEXTVAL, 'Lucy Wilson');
+INSERT INTO Customers_5 (customer_id, customer_name) 
+VALUES (customers_seq.NEXTVAL, 'Alex Martin');
+
+-- Insert sample data into Restaurants table
+INSERT INTO Restaurants_5 (restaurant_id, restaurant_name, cuisine_type) 
+VALUES (restaurants_seq.NEXTVAL, 'Restaurant A', 'Italian');
+INSERT INTO Restaurants_5 (restaurant_id, restaurant_name, cuisine_type) 
+VALUES (restaurants_seq.NEXTVAL, 'Restaurant B', 'Chinese');
+INSERT INTO Restaurants_5 (restaurant_id, restaurant_name, cuisine_type) 
+VALUES (restaurants_seq.NEXTVAL, 'Restaurant C', 'Mexican');
+INSERT INTO Restaurants_5 (restaurant_id, restaurant_name, cuisine_type) 
+VALUES (restaurants_seq.NEXTVAL, 'Restaurant D', 'Indian');
+INSERT INTO Restaurants_5 (restaurant_id, restaurant_name, cuisine_type) 
+VALUES (restaurants_seq.NEXTVAL, 'Restaurant E', 'Italian');
+INSERT INTO Restaurants_5 (restaurant_id, restaurant_name, cuisine_type) 
+VALUES (restaurants_seq.NEXTVAL, 'Restaurant F', 'Chinese');
+
+-- Insert sample data into Reviews table
+INSERT INTO Reviews_5 (review_id, restaurant_id, reviewer_email, stars, review_text) 
+VALUES (reviews_seq.NEXTVAL, 1, 'john.doe@example.com', 5, 'Excellent pizza and pasta!');
+INSERT INTO Reviews_5 (review_id, restaurant_id, reviewer_email, stars, review_text) 
+VALUES (reviews_seq.NEXTVAL, 1, 'jane.smith@example.com', 4, 'Good food, but the service was slow.');
+INSERT INTO Reviews_5 (review_id, restaurant_id, reviewer_email, stars, review_text) 
+VALUES (reviews_seq.NEXTVAL, 2, 'mike.jones@example.com', 3, 'Decent food, but not the best Chinese food.');
+INSERT INTO Reviews_5 (review_id, restaurant_id, reviewer_email, stars, review_text) 
+VALUES (reviews_seq.NEXTVAL, 3, 'lucy.wilson@example.com', 2, 'The tacos were bland and tasteless.');
+INSERT INTO Reviews_5 (review_id, restaurant_id, reviewer_email, stars, review_text) 
+VALUES (reviews_seq.NEXTVAL, 4, 'alex.martin@example.com', 5, 'Best curry Ive ever had!');
+INSERT INTO Reviews_5 (review_id, restaurant_id, reviewer_email, stars, review_text) 
+VALUES (reviews_seq.NEXTVAL, 5, 'john.doe@example.com', 4, 'Great pasta, but the ambiance was noisy.');
+INSERT INTO Reviews_5 (review_id, restaurant_id, reviewer_email, stars, review_text) 
+VALUES (reviews_seq.NEXTVAL, 6, 'mike.jones@example.com', 1, 'Terrible food, I wont be coming back.');
+
+-- Insert sample data into Orders table
+INSERT INTO Orders_5 (order_id, customer_id, restaurant_id) 
+VALUES (orders_seq.NEXTVAL, 1, 1);  -- John ordered from Restaurant A (Italian)
+INSERT INTO Orders_5 (order_id, customer_id, restaurant_id) 
+VALUES (orders_seq.NEXTVAL, 1, 2);  -- John ordered from Restaurant B (Chinese)
+INSERT INTO Orders_5 (order_id, customer_id, restaurant_id) 
+VALUES (orders_seq.NEXTVAL, 2, 3);  -- Jane ordered from Restaurant C (Mexican)
+INSERT INTO Orders_5 (order_id, customer_id, restaurant_id) 
+VALUES (orders_seq.NEXTVAL, 3, 4);  -- Mike ordered from Restaurant D (Indian)
+INSERT INTO Orders_5 (order_id, customer_id, restaurant_id) 
+VALUES (orders_seq.NEXTVAL, 4, 5);  -- Lucy ordered from Restaurant E (Italian)
+INSERT INTO Orders_5 (order_id, customer_id, restaurant_id) 
+VALUES (orders_seq.NEXTVAL, 5, 6);  -- Alex ordered from Restaurant F (Chinese)
+
+-- Procedure for adding reviews, recommending restaurants, etc.
+-- The logic in the procedures doesn't change since it doesn't depend on triggers.
+
+CREATE OR REPLACE PROCEDURE Add_Review (
+    reviewer_email IN VARCHAR2,
+    restaurant_name IN VARCHAR2,
+    stars IN INT,
+    review_text IN VARCHAR2
+) AS
+    restaurant_id INT;
+BEGIN
+    -- Validate that stars are between 1 and 5, but without raising an error
+    IF stars < 1 OR stars > 5 THEN
+        DBMS_OUTPUT.PUT_LINE('Error: Stars rating must be between 1 and 5. Provided stars: ' || stars);
+        RETURN;  -- Exit the procedure if stars are invalid
+    END IF;
+
+    -- Find the restaurant ID based on the name, limit to one row if multiple restaurants share the same name
+    SELECT restaurant_id
+    INTO restaurant_id
+    FROM Restaurants_5
+    WHERE restaurant_name = restaurant_name
+    AND ROWNUM = 1; -- Limit the result to one row
+
+    -- Insert the review into the Reviews table
+    INSERT INTO Reviews_5 (review_id, restaurant_id, reviewer_email, stars, review_text)
+    VALUES (reviews_seq.NEXTVAL, restaurant_id, reviewer_email, stars, review_text);
+
+    -- Output the result
+    DBMS_OUTPUT.PUT_LINE('Review added successfully for Restaurant: ' || restaurant_name || 
+                         ', Reviewer: ' || reviewer_email || 
+                         ', Rating: ' || stars || ', Review: ' || review_text);
+END Add_Review;
+/
+
+
+
+
+CREATE OR REPLACE PROCEDURE Buy_Or_Beware (X IN INT) 
+IS
+    avg_stars   DECIMAL(3,2);
+    restaurant_id INT;
+    cuisine_type VARCHAR(100);
+    stddev     DECIMAL(3,2);
+BEGIN
+    -- Output for top-rated restaurants
+    DBMS_OUTPUT.PUT_LINE('Top rated restaurants');
+
+    -- Process the top X rated restaurants using ROWNUM in a subquery
+    FOR r IN (
+        SELECT avg_stars, restaurant_id, cuisine_type, stddev
+        FROM (
+            SELECT AVG(r.stars) AS avg_stars, r.restaurant_id, res.cuisine_type, 
+                   STDDEV(r.stars) AS stddev
+            FROM Reviews_5 r
+            JOIN Restaurants_5 res ON r.restaurant_id = res.restaurant_id
+            GROUP BY r.restaurant_id, res.cuisine_type
+            ORDER BY avg_stars DESC
+        ) 
+        WHERE ROWNUM <= X
+    ) LOOP
+        DBMS_OUTPUT.PUT_LINE('Avg Stars: ' || r.avg_stars || ', Restaurant ID: ' || r.restaurant_id || 
+                             ', Cuisine Type: ' || r.cuisine_type || ', Stddev: ' || r.stddev);
+    END LOOP;
+
+    -- Output for worst-rated restaurants
+    DBMS_OUTPUT.PUT_LINE('Buyer Beware: Stay Away from...');
+    
+    -- Process the worst X rated restaurants using ROWNUM in a subquery
+    FOR r IN (
+        SELECT avg_stars, restaurant_id, cuisine_type, stddev
+        FROM (
+            SELECT AVG(r.stars) AS avg_stars, r.restaurant_id, res.cuisine_type, 
+                   STDDEV(r.stars) AS stddev
+            FROM Reviews_5 r
+            JOIN Restaurants_5 res ON r.restaurant_id = res.restaurant_id
+            GROUP BY r.restaurant_id, res.cuisine_type
+            ORDER BY avg_stars ASC
+        )
+        WHERE ROWNUM <= X
+    ) LOOP
+        DBMS_OUTPUT.PUT_LINE('Avg Stars: ' || r.avg_stars || ', Restaurant ID: ' || r.restaurant_id || 
+                             ', Cuisine Type: ' || r.cuisine_type || ', Stddev: ' || r.stddev);
+    END LOOP;
+
+END Buy_Or_Beware;
+/
+set serveroutput on;
+--normal case —-expected output = review added successfully
+EXEC Add_Review('janedoe@example.com', 'Sushi World', 6, 'Rating should be between 1 and 5.');
+--special case  —expected output = stars should be 1-5
+EXEC Add_Review('janedoe@example.com', 'Sushi World', 5, 'Excellent sushi with fresh ingredients!');
+
+
+
+
+-- Get the top and worst 3 rated restaurants
+EXEC Buy_Or_Beware(3);
+--special case 0 restaurants
+EXEC Buy_Or_Beware(0);
+
+
