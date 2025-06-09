@@ -535,12 +535,6 @@ SELECT * FROM restaurants_03;
 SELECT * FROM menu_items_03;
 SELECT * FROM inventory_03;
 
-/* MEMBER 03 CODE */
-/*
-Viann Cheng
-IS420 D3 Member03
-Due Nov 24, 2024
-*/
 
 /***************
 RESET EVERYTHING
