@@ -117,7 +117,6 @@ END;
 
 /*
 Commit Changes
-- Once all procedures and tests are verified, press Commit (checkmark icon in the toolbar) to save.
 */
 
 /*
