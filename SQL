@@ -673,9 +673,7 @@ EXCEPTION
 END;
 /
 
-/*************
-MEMBER 03 CODE
-**************/
+
 /*
 9. Create menu item: Given a cuisine_03 type id, create a menu item (name and
 price) for that cuisine_03 type. Use the function FIND_CUISINE_TYPE_ID (see
@@ -1570,7 +1568,7 @@ CREATE SEQUENCE orders_seq_5 START WITH 1 INCREMENT BY 1;
 
 -- Insert sample data into the Customers table
 INSERT INTO Customers_5 (customer_id, customer_name) 
-VALUES (customers_seq.NEXTVAL, 'John Doe');
+VALUES (customers_seq.NEXTVAL, 'John Smith');
 INSERT INTO Customers_5 (customer_id, customer_name) 
 VALUES (customers_seq.NEXTVAL, 'Jane Smith');
 INSERT INTO Customers_5 (customer_id, customer_name) 
@@ -1596,7 +1594,7 @@ VALUES (restaurants_seq.NEXTVAL, 'Restaurant F', 'Chinese');
 
 -- Insert sample data into Reviews table
 INSERT INTO Reviews_5 (review_id, restaurant_id, reviewer_email, stars, review_text) 
-VALUES (reviews_seq.NEXTVAL, 1, 'john.doe@example.com', 5, 'Excellent pizza and pasta!');
+VALUES (reviews_seq.NEXTVAL, 1, 'john.smith@example.com', 5, 'Excellent pizza and pasta!');
 INSERT INTO Reviews_5 (review_id, restaurant_id, reviewer_email, stars, review_text) 
 VALUES (reviews_seq.NEXTVAL, 1, 'jane.smith@example.com', 4, 'Good food, but the service was slow.');
 INSERT INTO Reviews_5 (review_id, restaurant_id, reviewer_email, stars, review_text) 
@@ -1606,7 +1604,7 @@ VALUES (reviews_seq.NEXTVAL, 3, 'lucy.wilson@example.com', 2, 'The tacos were bl
 INSERT INTO Reviews_5 (review_id, restaurant_id, reviewer_email, stars, review_text) 
 VALUES (reviews_seq.NEXTVAL, 4, 'alex.martin@example.com', 5, 'Best curry Ive ever had!');
 INSERT INTO Reviews_5 (review_id, restaurant_id, reviewer_email, stars, review_text) 
-VALUES (reviews_seq.NEXTVAL, 5, 'john.doe@example.com', 4, 'Great pasta, but the ambiance was noisy.');
+VALUES (reviews_seq.NEXTVAL, 5, 'john.smith@example.com', 4, 'Great pasta, but the ambiance was noisy.');
 INSERT INTO Reviews_5 (review_id, restaurant_id, reviewer_email, stars, review_text) 
 VALUES (reviews_seq.NEXTVAL, 6, 'mike.jones@example.com', 1, 'Terrible food, I wont be coming back.');
 
@@ -1713,9 +1711,9 @@ END Buy_Or_Beware;
 /
 set serveroutput on;
 --normal case —-expected output = review added successfully
-EXEC Add_Review('janedoe@example.com', 'Sushi World', 6, 'Rating should be between 1 and 5.');
+EXEC Add_Review('john.steel@example.com', 'Sushi World', 6, 'Rating should be between 1 and 5.');
 --special case  —expected output = stars should be 1-5
-EXEC Add_Review('janedoe@example.com', 'Sushi World', 5, 'Excellent sushi with fresh ingredients!');
+EXEC Add_Review('john.steel@example.com', 'Sushi World', 5, 'Excellent sushi with fresh ingredients!');
 
 
 
